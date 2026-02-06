@@ -1,9 +1,11 @@
 package model.entities;
 
+import java.io.Serializable;
 import java.time.LocalDate;
 import java.util.Objects;
 
-public class Seller {
+public class Seller  implements Serializable {
+
     private Integer id;
     private String name;
     private String email;
@@ -70,8 +72,12 @@ public class Seller {
                 ", email='" + email + '\'' +
                 ", birthDate=" + birthDate +
                 ", baseSalary=" + baseSalary +
+                ", departament=" + departament +
+                "["+departament.getId()+" - " + departament.getNome()+"]"+
                 '}';
     }
+
+
 
     @Override
     public boolean equals(Object o) {

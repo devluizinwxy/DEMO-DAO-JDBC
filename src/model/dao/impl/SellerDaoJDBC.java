@@ -6,10 +6,7 @@ import model.dao.SellerDao;
 import model.entities.Departament;
 import model.entities.Seller;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -24,7 +21,26 @@ public class SellerDaoJDBC implements SellerDao {
 
     @Override
     public void insert(Seller seller) {
-
+       PreparedStatement statement = null;
+       ResultSet resultSet = null;
+       String sql = "INSERT INTO seller (Name, Email, BirthDate, BaseSalary, DepartamentId) VALUES (?),(?),(?),(?),(?) ";
+       try{
+           connection.setAutoCommit(false);
+           statement = connection.prepareStatement(sql);
+           statement.setString(1,seller.getName());
+           statement.setString(2,seller.getEmail());
+           statement.setDate(3, (Date) seller.getBirthDate());
+           statement.setDouble(4,seller.getBaseSalary());
+           statement.setInt(5,seller.getDepartament().getId());
+           connection.commit();
+       } catch (SQLException e) {
+           try{
+               connection.rollback();
+           } catch (SQLException ex) {
+               throw new DbException("Erro ao fazer rollback"+ex.getMessage());
+           }
+           throw new DbException("Erro ao inserir o dado: "+ e.getMessage());
+       }
     }
 
     @Override

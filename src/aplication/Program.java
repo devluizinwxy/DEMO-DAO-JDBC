@@ -1,6 +1,7 @@
 package aplication;
 
 import model.dao.DaoFactory;
+import model.dao.DepartamentDao;
 import model.dao.SellerDao;
 import model.entities.Departament;
 import model.entities.Seller;
@@ -13,12 +14,8 @@ public class Program {
     public static void main(String[] args) {
 
 
-        SellerDao  sellerDao = DaoFactory.createSellerDao();
-
-
-        sellerDao.deleteById(1);
-        Seller seller2  = sellerDao.findById(1);
-        System.out.println(seller2);
-
+        DepartamentDao departamentDao = DaoFactory.createDepartamentDao();
+       List<Departament> departaments= departamentDao.findAll();
+ departaments.forEach(System.out::println);
     }
 }

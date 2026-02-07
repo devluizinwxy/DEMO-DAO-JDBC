@@ -10,7 +10,10 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class SellerDaoJDBC implements SellerDao {
     private Connection connection;
@@ -60,6 +63,9 @@ public class SellerDaoJDBC implements SellerDao {
 
         } catch (SQLException e) {
             throw new DbException("Aconteceu um erro ao buscar pelo id"+ e.getMessage());
+        }finally {
+            DB.closeStatement(statement);
+            DB.closeResultSet(resultSet);
         }
         return null;
     }
@@ -67,6 +73,7 @@ public class SellerDaoJDBC implements SellerDao {
 
     @Override
     public List<Seller> findAll() {
+
         return List.of();
     }
     private Seller instantiateSeller(ResultSet resultSet, Departament departament) throws SQLException {
@@ -80,10 +87,55 @@ public class SellerDaoJDBC implements SellerDao {
         return obj;
     }
 
-    private Departament instantiateDepartment(ResultSet resultSet) throws SQLException {
+    private Departament instantiateDepartment(ResultSet rs) throws SQLException {
         Departament dep = new Departament();
-        dep.setId(resultSet.getInt("DepartmentId"));
-        dep.setName(resultSet.getString("DepName"));
+        dep.setId(rs.getInt("DepartamentId")); // vem de seller.*
+        dep.setName(rs.getString("DepName"));  // alias do SQL
         return dep;
+    }
+
+    @Override
+    public List<Seller> findByDepartament(Departament departament) {
+        PreparedStatement statement = null;
+        ResultSet resultSet = null;
+        String sql = "SELECT seller.*, departament.Nome AS DepName "
+                + "FROM seller "
+                + "INNER JOIN departament "
+                + "ON seller.DepartamentId = departament.Id "
+                + "WHERE seller.DepartamentId = ? "
+                + "ORDER BY seller.Name";
+
+
+        try{
+            connection = DB.getConnection();
+
+            statement = connection.prepareStatement(sql);
+
+            statement.setInt(1,departament.getId());
+            resultSet = statement.executeQuery();
+            Map<Integer, Departament> departamentMap = new HashMap<>();
+            List<Seller> sellers = new ArrayList<>();
+            while (resultSet.next()){
+                Departament dep = departamentMap.get(resultSet.getInt("DepartamentId"));
+                if (dep == null){
+                    dep = instantiateDepartment(resultSet);
+                    departamentMap.put(resultSet.getInt("DepartamentID"),dep);
+                }
+
+                Seller obj = instantiateSeller(resultSet,dep);
+                sellers.add(obj);
+
+
+            }
+            return sellers;
+
+        } catch (SQLException e) {
+            throw new DbException("Aconteceu um erro ao buscar pelo id"+ e.getMessage());
+
+        }finally {
+            DB.closeStatement(statement);
+            DB.closeResultSet(resultSet);
+        }
+
     }
 }

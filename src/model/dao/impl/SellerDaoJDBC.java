@@ -2,6 +2,7 @@ package model.dao.impl;
 
 import db.DB;
 import db.DbException;
+import db.DbIntegrityException;
 import model.dao.SellerDao;
 import model.entities.Departament;
 import model.entities.Seller;
@@ -21,89 +22,104 @@ public class SellerDaoJDBC implements SellerDao {
 
     @Override
     public void insert(Seller seller) {
-       PreparedStatement statement = null;
-       ResultSet resultSet = null;
-       String sql = "INSERT INTO seller (Name, Email, BirthDate, BaseSalary, DepartamentId) VALUES (?),(?),(?),(?),(?) ";
-       try{
-           connection.setAutoCommit(false);
-           statement = connection.prepareStatement(sql);
-           statement.setString(1,seller.getName());
-           statement.setString(2,seller.getEmail());
-           statement.setDate(3, (Date) seller.getBirthDate());
-           statement.setDouble(4,seller.getBaseSalary());
-           statement.setInt(5,seller.getDepartament().getId());
-           statement.executeUpdate();
-           connection.commit();
-       } catch (SQLException e) {
-           try{
-               connection.rollback();
-           } catch (SQLException ex) {
-               throw new DbException("Erro ao fazer rollback"+ex.getMessage());
-           }
-           throw new DbException("Erro ao inserir o dado: "+ e.getMessage());
-       }
+        String sql = "INSERT INTO seller "
+                + "(Name, Email, BirthDate, BaseSalary, DepartamentId) "
+                + "VALUES (?, ?, ?, ?, ?)";
+
+        try (PreparedStatement st = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+
+            st.setString(1, seller.getName());
+            st.setString(2, seller.getEmail());
+            st.setDate(3, new Date(seller.getBirthDate().getTime()));
+            st.setDouble(4, seller.getBaseSalary());
+            st.setInt(5, seller.getDepartament().getId());
+
+            int quantidade = st.executeUpdate();
+            if (quantidade > 0) {
+                ResultSet resultSet = st.getGeneratedKeys();
+                if (resultSet.next()) {
+                    int id = resultSet.getInt(1);
+                    seller.setId(id);
+                }
+                DB.closeResultSet(resultSet);
+            } else {
+                throw new DbException("Nenhuma linha foi criada: ");
+            }
+        } catch (SQLException e) {
+            throw new DbException("Erro ao inserir: " + e.getMessage());
+        }
+
+
     }
+
 
     @Override
     public void update(Seller seller) {
         PreparedStatement statement = null;
-        ResultSet resultSet = null;
-        String sql = "UPDATE seller\n" +
-                "SET Name = ?, Email = ?, BirthDate = ?, BaseSalary = ?, DepartmentId = ?\n" +
+
+        String sql = "UPDATE seller " +
+                "SET Name = ?, Email = ?, BirthDate = ?, BaseSalary = ?, DepartamentId = ? " +
                 "WHERE Id = ?";
-        try{
+        try {
             connection.setAutoCommit(false);
             statement = connection.prepareStatement(sql);
-            statement.setString(1,seller.getName());
-            statement.setString(2,seller.getEmail());
-            statement.setDate(3, (Date) seller.getBirthDate());
-            statement.setDouble(4,seller.getBaseSalary());
-            statement.setInt(5,seller.getDepartament().getId());
-            statement.setInt(6,seller.getId());
+            statement.setString(1, seller.getName());
+            statement.setString(2, seller.getEmail());
+            statement.setDate(3, new java.sql.Date(seller.getBirthDate().getTime()));
+            statement.setDouble(4, seller.getBaseSalary());
+            statement.setInt(5, seller.getDepartament().getId());
+            statement.setInt(6, seller.getId());
             statement.executeUpdate();
             connection.commit();
         } catch (SQLException e) {
-            try{
-                connection.rollback();
-            } catch (SQLException ex) {
-                throw new DbException("Erro ao fazer rollback"+ex.getMessage());
-            }
-            throw new DbException("Erro ao inserir o dado: "+ e.getMessage());
+            throw new DbException("Erro ao inserir o dado: " + e.getMessage());
+        }finally {
+            DB.closeStatement(statement);
         }
     }
 
     @Override
     public void deleteById(Integer id) {
-
+        PreparedStatement statement = null;
+        String sql = "DELETE FROM seller " +
+                "WHERE Id = ?";
+        try {
+            statement = connection.prepareStatement(sql);
+            statement.setInt(1, id);
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new DbIntegrityException("Erro ao apagar: " + e.getMessage());
+        }
     }
+
     @Override
     public Seller findById(Integer id) {
-          PreparedStatement statement = null;
-           ResultSet resultSet = null;
+        PreparedStatement statement = null;
+        ResultSet resultSet = null;
         String sql = "SELECT seller.*, departament.Nome AS DepName "
                 + "FROM seller "
                 + "INNER JOIN departament ON seller.DepartamentId = departament.Id "
                 + "WHERE seller.Id = ?";
 
-        try{
-          connection = DB.getConnection();
+        try {
+            connection = DB.getConnection();
 
-          statement = connection.prepareStatement(sql);
+            statement = connection.prepareStatement(sql);
 
-           statement.setInt(1,id);
-          resultSet = statement.executeQuery();
-          if(resultSet.next()){
-              Departament departament = instantiateDepartment(resultSet);
+            statement.setInt(1, id);
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                Departament departament = instantiateDepartment(resultSet);
 
-              Seller obj = instantiateSeller(resultSet,departament);
+                Seller obj = instantiateSeller(resultSet, departament);
 
-              return obj;
+                return obj;
 
-          }
+            }
 
         } catch (SQLException e) {
-            throw new DbException("Aconteceu um erro ao buscar pelo id"+ e.getMessage());
-        }finally {
+            throw new DbException("Aconteceu um erro ao buscar pelo id" + e.getMessage());
+        } finally {
             DB.closeStatement(statement);
             DB.closeResultSet(resultSet);
         }
@@ -122,7 +138,7 @@ public class SellerDaoJDBC implements SellerDao {
                 + "ORDER BY seller.Name";
 
 
-        try{
+        try {
             connection = DB.getConnection();
 
             statement = connection.prepareStatement(sql);
@@ -130,14 +146,14 @@ public class SellerDaoJDBC implements SellerDao {
             resultSet = statement.executeQuery();
             Map<Integer, Departament> departamentMap = new HashMap<>();
             List<Seller> sellers = new ArrayList<>();
-            while (resultSet.next()){
+            while (resultSet.next()) {
                 Departament dep = departamentMap.get(resultSet.getInt("DepartamentId"));
-                if (dep == null){
+                if (dep == null) {
                     dep = instantiateDepartment(resultSet);
-                    departamentMap.put(resultSet.getInt("DepartamentID"),dep);
+                    departamentMap.put(resultSet.getInt("DepartamentID"), dep);
                 }
 
-                Seller obj = instantiateSeller(resultSet,dep);
+                Seller obj = instantiateSeller(resultSet, dep);
                 sellers.add(obj);
 
 
@@ -145,14 +161,15 @@ public class SellerDaoJDBC implements SellerDao {
             return sellers;
 
         } catch (SQLException e) {
-            throw new DbException("Aconteceu um erro ao buscar pelo id"+ e.getMessage());
+            throw new DbException("Aconteceu um erro ao buscar pelo id" + e.getMessage());
 
-        }finally {
+        } finally {
             DB.closeStatement(statement);
             DB.closeResultSet(resultSet);
         }
 
     }
+
     private Seller instantiateSeller(ResultSet resultSet, Departament departament) throws SQLException {
         Seller obj = new Seller();
         obj.setId(resultSet.getInt("Id"));
@@ -183,23 +200,23 @@ public class SellerDaoJDBC implements SellerDao {
                 + "ORDER BY seller.Name";
 
 
-        try{
+        try {
             connection = DB.getConnection();
 
             statement = connection.prepareStatement(sql);
 
-            statement.setInt(1,departament.getId());
+            statement.setInt(1, departament.getId());
             resultSet = statement.executeQuery();
             Map<Integer, Departament> departamentMap = new HashMap<>();
             List<Seller> sellers = new ArrayList<>();
-            while (resultSet.next()){
+            while (resultSet.next()) {
                 Departament dep = departamentMap.get(resultSet.getInt("DepartamentId"));
-                if (dep == null){
+                if (dep == null) {
                     dep = instantiateDepartment(resultSet);
-                    departamentMap.put(resultSet.getInt("DepartamentID"),dep);
+                    departamentMap.put(resultSet.getInt("DepartamentID"), dep);
                 }
 
-                Seller obj = instantiateSeller(resultSet,dep);
+                Seller obj = instantiateSeller(resultSet, dep);
                 sellers.add(obj);
 
 
@@ -207,9 +224,9 @@ public class SellerDaoJDBC implements SellerDao {
             return sellers;
 
         } catch (SQLException e) {
-            throw new DbException("Aconteceu um erro ao buscar pelo id"+ e.getMessage());
+            throw new DbException("Aconteceu um erro ao buscar pelo id" + e.getMessage());
 
-        }finally {
+        } finally {
             DB.closeStatement(statement);
             DB.closeResultSet(resultSet);
         }

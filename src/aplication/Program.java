@@ -22,5 +22,8 @@ public class Program {
         Departament departament = new Departament(1,null);
         List<Seller> sellers = sellerDao.findByDepartament(departament);
         sellers.forEach(System.out::println);
+        System.out.println("Findyall");
+        List<Seller> sellers1 = sellerDao.findAll();
+        sellers1.forEach(System.out::println);
     }
 }

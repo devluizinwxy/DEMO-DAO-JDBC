@@ -32,6 +32,7 @@ public class SellerDaoJDBC implements SellerDao {
            statement.setDate(3, (Date) seller.getBirthDate());
            statement.setDouble(4,seller.getBaseSalary());
            statement.setInt(5,seller.getDepartament().getId());
+           statement.executeUpdate();
            connection.commit();
        } catch (SQLException e) {
            try{
@@ -45,7 +46,30 @@ public class SellerDaoJDBC implements SellerDao {
 
     @Override
     public void update(Seller seller) {
-
+        PreparedStatement statement = null;
+        ResultSet resultSet = null;
+        String sql = "UPDATE seller\n" +
+                "SET Name = ?, Email = ?, BirthDate = ?, BaseSalary = ?, DepartmentId = ?\n" +
+                "WHERE Id = ?";
+        try{
+            connection.setAutoCommit(false);
+            statement = connection.prepareStatement(sql);
+            statement.setString(1,seller.getName());
+            statement.setString(2,seller.getEmail());
+            statement.setDate(3, (Date) seller.getBirthDate());
+            statement.setDouble(4,seller.getBaseSalary());
+            statement.setInt(5,seller.getDepartament().getId());
+            statement.setInt(6,seller.getId());
+            statement.executeUpdate();
+            connection.commit();
+        } catch (SQLException e) {
+            try{
+                connection.rollback();
+            } catch (SQLException ex) {
+                throw new DbException("Erro ao fazer rollback"+ex.getMessage());
+            }
+            throw new DbException("Erro ao inserir o dado: "+ e.getMessage());
+        }
     }
 
     @Override

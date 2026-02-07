@@ -1,11 +1,24 @@
 package model.dao.impl;
 
+import db.DB;
+import db.DbException;
 import model.dao.SellerDao;
+import model.entities.Departament;
 import model.entities.Seller;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
 
 public class SellerDaoJDBC implements SellerDao {
+    private Connection connection;
+
+    public SellerDaoJDBC(Connection connection) {
+        this.connection = connection;
+    }
+
     @Override
     public void insert(Seller seller) {
 
@@ -22,6 +35,38 @@ public class SellerDaoJDBC implements SellerDao {
     }
     @Override
     public Seller findById(Integer id) {
+          PreparedStatement statement = null;
+           ResultSet resultSet = null;
+        String sql = "SELECT seller.*, departament.Nome AS DepName "
+                + "FROM seller "
+                + "INNER JOIN departament ON seller.DepartamentId = departament.Id "
+                + "WHERE seller.Id = ?";
+
+        try{
+          connection = DB.getConnection();
+
+          statement = connection.prepareStatement(sql);
+
+           statement.setInt(1,id);
+          resultSet = statement.executeQuery();
+          if(resultSet.next()){
+              Departament departament = new Departament();
+              departament.setNome(resultSet.getString("DepName"));
+              departament.setId(resultSet.getInt("DepartamentId"));
+              Seller obj = new Seller();
+              obj.setId(resultSet.getInt("Id"));
+              obj.setName(resultSet.getString("Name"));
+              obj.setEmail(resultSet.getString("Email"));
+              obj.setBaseSalary(resultSet.getDouble("BaseSalary"));
+              obj.setBirthDate(resultSet.getDate("BirthDate"));
+              obj.setDepartament(departament);
+              return obj;
+
+          }
+
+        } catch (SQLException e) {
+            throw new DbException("Aconteceu um erro ao buscar pelo id"+ e.getMessage());
+        }
         return null;
     }
 
